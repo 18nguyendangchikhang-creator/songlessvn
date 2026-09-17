@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Songless VN - Đoán Bài Hát</title>
+  <style>
+    * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { background: #121213; color: #fff; display: flex; justify-content: center; padding: 20px; margin: 0; }
+    .container { width: 100%; max-width: 480px; display: flex; flex-direction: column; align-items: center; gap: 15px; }
+    h1 { margin-bottom: 5px; font-size: 24px; letter-spacing: 2px; }
+    
+    /* 6 Ô lượt đoán */
+    .attempts-list { width: 100%; display: flex; flex-direction: column; gap: 8px; }
+    .attempt-box { height: 42px; border: 1px solid #3a3a3c; border-radius: 4px; display: flex; align-items: center; padding: 0 12px; font-size: 14px; background: #1a1a1b; }
+    .attempt-box.correct { background: #2e7d32; border-color: #4caf50; }
+    .attempt-box.wrong { background: #7f1d1d; border-color: #ef4444; }
+    .attempt-box.skipped { background: #374151; border-color: #6b7280; }
+
+    /* Thanh tiến trình */
+    .progress-wrapper { width: 100%; background: #272729; border-radius: 6px; overflow: hidden; height: 12px; }
+    .progress-bar { height: 100%; width: 0%; background: #10b981; transition: width 0.1s linear; }
+
+    /* Nút Play */
+    .controls { display: flex; align-items: center; gap: 15px; margin: 10px 0; }
+    .btn-play { background: #10b981; border: none; width: 54px; height: 54px; border-radius: 50%; font-size: 22px; color: white; cursor: pointer; display: flex; justify-content: center; align-items: center; }
+    .btn-play:hover { opacity: 0.9; }
+
+    /* Khung tìm kiếm và gợi ý A-Z */
+    .search-container { width: 100%; position: relative; }
+    input[type="text"] { width: 100%; padding: 12px; border-radius: 6px; border: 1px solid #3a3a3c; background: #272729; color: #fff; font-size: 15px; outline: none; }
+    .suggestions { position: absolute; bottom: 105%; left: 0; right: 0; background: #1f2937; border-radius: 6px; max-height: 180px; overflow-y: auto; border: 1px solid #374151; display: none; z-index: 10; }
+    .suggestion-item { padding: 10px; cursor: pointer; border-bottom: 1px solid #2d3748; }
+    .suggestion-item:hover { background: #374151; }
+
+    /* Nút Thao tác */
+    .action-buttons { width: 100%; display: flex; gap: 10px; margin-top: 10px; }
+    .action-buttons button { flex: 1; padding: 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
+    .btn-skip { background: #4b5563; color: white; }
+    .btn-submit { background: #10b981; color: white; }
+
+    /* Màn hình kết thúc */
+    .end-screen { display: none; text-align: center; background: #1f2937; padding: 20px; border-radius: 8px; width: 100%; }
+    .btn-next { padding: 12px 24px; border: none; border-radius: 6px; cursor: pointer; background: #10b981; color: #fff; font-weight: bold; font-size: 15px; margin-top: 14px; }
+    .btn-next:hover { opacity: 0.9; }
+    .now-playing-badge { display: inline-block; background: #10b981; color: #fff; font-size: 12px; padding: 4px 8px; border-radius: 4px; margin-top: 6px; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h1>SONGLESS VN</h1>
+  <div id="unlock-info">Nghe tối đa: 1 giây</div>
+
+  <!-- Danh sách 6 lần đoán -->
+  <div class="attempts-list" id="attemptsList">
+    <div class="attempt-box"></div>
+    <div class="attempt-box"></div>
+    <div class="attempt-box"></div>
+    <div class="attempt-box"></div>
+    <div class="attempt-box"></div>
+    <div class="attempt-box"></div>
+  </div>
+
+  <!-- Thanh chạy nhạc -->
+  <div class="progress-wrapper">
+    <div class="progress-bar" id="progressBar"></div>
+  </div>
+
+  <div class="controls">
+    <button class="btn-play" id="playBtn" onclick="togglePlay()">▶</button>
+  </div>
+
+  <!-- Thanh tìm kiếm -->
+  <div class="search-container" id="guessSection">
+    <div class="suggestions" id="suggestionsBox"></div>
+    <input 
+      type="text" 
+      id="songInput" 
+      placeholder="Tìm tên bài hát hoặc ca sĩ..." 
+      onfocus="onSearch(this.value)" 
+      oninput="onSearch(this.value)"
+      autocomplete="off">
+    
+    <div class="action-buttons">
+      <button class="btn-skip" onclick="skipTurn()">Bỏ qua</button>
+      <button class="btn-submit" onclick="submitGuess()">Đoán</button>
+    </div>
+  </div>
+
+  <!-- Màn hình kết quả & Phát trọn bài -->
+  <div class="end-screen" id="endScreen">
+    <h2 id="resultTitle"></h2>
+    <p id="resultSong" style="font-size: 17px; font-weight: bold; margin-bottom: 5px;"></p>
+    <div><span class="now-playing-badge">🎵 Đang phát trọn vẹn bài hát</span></div>
+    <br>
+    <button class="btn-next" onclick="playNextSong()">Chơi tiếp bài khác ⏭</button>
+  </div>
+
+  <audio id="audioElement" preload="auto"></audio>
+</div>
+
+<script>
+  // 1. KHO BÀI HÁT: Bạn dán thêm bao nhiêu bài tùy thích vào đây
+  const songDatabase = [
+    {
+      title: "Nắng Ấm Xa Dần",
+      artist: "Sơn Tùng M-TP",
+      src: "https://files.catbox.moe/rm4q8a.mp3"
+    },
+    {
+      title: "Tình Ca Tình Ta",
+      artist: "KIS",
+      src: "https://files.catbox.moe/ix86ub.mp3"
+    },
+    {
+      title: "Waiting For You",
+      artist: "MONO",
+      src: "https://files.catbox.moe/yvqsq3.mp3"
+    },
+    {
+      title: "Bên Trên Tầng Lầu",
+      artist: "Tăng Duy Tân",
+      src: "https://files.catbox.moe/tjhlsc.mp3"
+    },
+    {
+         title: "Nắng Ấm Trong Tim",
+      artist: "Duongg, Dadeon",
+      src: "https://files.catbox.moe/69a1j1.mp3"
+    },
+  ];
+
+  const unlockTimes = [1, 2, 4, 7, 11, 16];
+  const totalMaxTime = 16;
+
+  let currentSong = null;
+  let currentAttempt = 0;
+  let isPlaying = false;
+  let isGameOver = false;
+  let timer = null;
+  let unplayedSongs = [];
+
+  const audio = document.getElementById("audioElement");
+  const playBtn = document.getElementById("playBtn");
+  const progressBar = document.getElementById("progressBar");
+  const unlockInfo = document.getElementById("unlock-info");
+
+  // Khởi tạo vòng chơi
+  function initGame() {
+    currentAttempt = 0;
+    isGameOver = false;
+
+    // Quản lý Random không trùng bài cũ
+    if (unplayedSongs.length === 0) {
+      unplayedSongs = [...songDatabase];
+    }
+    const randomIndex = Math.floor(Math.random() * unplayedSongs.length);
+    currentSong = unplayedSongs[randomIndex];
+    unplayedSongs.splice(randomIndex, 1);
+
+    audio.src = currentSong.src;
+    audio.currentTime = 0;
+
+    // Đặt lại giao diện
+    document.getElementById("endScreen").style.display = "none";
+    document.getElementById("guessSection").style.display = "block";
+    document.getElementById("songInput").value = "";
+    document.querySelectorAll(".attempt-box").forEach(box => {
+      box.textContent = "";
+      box.className = "attempt-box";
+    });
+    updateUnlockInfo();
+    progressBar.style.width = "0%";
+    playBtn.textContent = "▶";
+    isPlaying = false;
+  }
+
+  function updateUnlockInfo() {
+    unlockInfo.textContent = `Nghe tối đa: ${unlockTimes[currentAttempt]} giây (Lượt ${currentAttempt + 1}/6)`;
+  }
+
+  // Điều khiển Phát / Tạm dừng
+  function togglePlay() {
+    if (isPlaying) {
+      pauseAudio();
+    } else {
+      if (isGameOver) {
+        playFullAudio();
+      } else {
+        playSnippet();
+      }
+    }
+  }
+
+  // Chế độ đang chơi: Chỉ phát theo mốc giây mở khóa
+  function playSnippet() {
+    audio.currentTime = 0;
+    audio.play().then(() => {
+      isPlaying = true;
+      playBtn.textContent = "❚❚";
+      const allowedTime = unlockTimes[currentAttempt];
+
+      clearInterval(timer);
+      timer = setInterval(() => {
+        const percent = (audio.currentTime / totalMaxTime) * 100;
+        progressBar.style.width = `${Math.min(percent, 100)}%`;
+
+        if (audio.currentTime >= allowedTime) {
+          pauseAudio();
+          audio.currentTime = 0;
+          progressBar.style.width = "0%";
+        }
+      }, 50);
+    }).catch(e => console.log(e));
+  }
+
+  // Chế độ kết thúc ván: Phát từ đầu đến hết toàn bộ bài hát
+  function playFullAudio() {
+    audio.play().then(() => {
+      isPlaying = true;
+      playBtn.textContent = "❚❚";
+
+      clearInterval(timer);
+      timer = setInterval(() => {
+        if (audio.duration) {
+          const percent = (audio.currentTime / audio.duration) * 100;
+          progressBar.style.width = `${percent}%`;
+        }
+      }, 100);
+    }).catch(e => console.log(e));
+  }
+
+  function pauseAudio() {
+    audio.pause();
+    isPlaying = false;
+    playBtn.textContent = "▶";
+    clearInterval(timer);
+  }
+
+  // TÌM KIẾM & SẮP XẾP BẢNG CHỮ CÁI A - Z TIẾNG VIỆT
+  function onSearch(query) {
+    const box = document.getElementById("suggestionsBox");
+    const cleanQuery = (query || "").trim().toLowerCase();
+
+    // 1. Lọc theo từ khóa (Nếu để trống thì lấy toàn bộ bài hát trong kho)
+    let filtered = songDatabase.filter(s => {
+      if (!cleanQuery) return true;
+      const fullInfo = `${s.title} - ${s.artist}`.toLowerCase();
+      return fullInfo.includes(cleanQuery);
+    });
+
+    if (filtered.length === 0) {
+      box.style.display = "none";
+      return;
+    }
+
+    // 2. Sắp xếp thứ tự bảng chữ cái A-Z
+    filtered.sort((a, b) => {
+      const nameA = `${a.title} - ${a.artist}`;
+      const nameB = `${b.title} - ${b.artist}`;
+      return nameA.localeCompare(nameB, 'vi', { sensitivity: 'base' });
+    });
+
+    // 3. Render danh sách
+    box.innerHTML = filtered.map(s => {
+      const displayVal = `${s.title} - ${s.artist}`;
+      const safeVal = displayVal.replace(/'/g, "\\'");
+      return `<div class="suggestion-item" onclick="selectSong('${safeVal}')">${displayVal}</div>`;
+    }).join("");
+    
+    box.style.display = "block";
+  }
+
+  function selectSong(value) {
+    document.getElementById("songInput").value = value;
+    document.getElementById("suggestionsBox").style.display = "none";
+  }
+
+  // Tự động đóng gợi ý nếu người chơi click ra ngoài ô tìm kiếm
+  document.addEventListener("click", function(e) {
+    const searchContainer = document.querySelector(".search-container");
+    if (searchContainer && !searchContainer.contains(e.target)) {
+      document.getElementById("suggestionsBox").style.display = "none";
+    }
+  });
+
+  // Đoán kết quả
+  function submitGuess() {
+    const input = document.getElementById("songInput");
+    const guessText = input.value.trim();
+    if (!guessText) return;
+
+    const answerText = `${currentSong.title} - ${currentSong.artist}`;
+    const box = document.querySelectorAll(".attempt-box")[currentAttempt];
+
+    if (guessText.toLowerCase() === answerText.toLowerCase()) {
+      box.textContent = `✔ ${guessText}`;
+      box.classList.add("correct");
+      endGame(true);
+    } else {
+      box.textContent = `✖ ${guessText}`;
+      box.classList.add("wrong");
+      advanceTurn();
+    }
+    input.value = "";
+    document.getElementById("suggestionsBox").style.display = "none";
+  }
+
+  function skipTurn() {
+    const box = document.querySelectorAll(".attempt-box")[currentAttempt];
+    box.textContent = "Đã bỏ qua";
+    box.classList.add("skipped");
+    advanceTurn();
+  }
+
+  function advanceTurn() {
+    currentAttempt++;
+    if (currentAttempt >= 6) {
+      endGame(false);
+    } else {
+      updateUnlockInfo();
+    }
+  }
+
+  // Kết thúc vòng: Phát toàn bộ bài hát
+  function endGame(isWin) {
+    isGameOver = true;
+    clearInterval(timer);
+    
+    document.getElementById("guessSection").style.display = "none";
+    const endScreen = document.getElementById("endScreen");
+    endScreen.style.display = "block";
+
+    document.getElementById("resultTitle").textContent = isWin ? "Chính xác! 🎉" : "Rất tiếc! Bạn chưa đoán ra 😢";
+    document.getElementById("resultSong").textContent = `${currentSong.title} - ${currentSong.artist}`;
+    unlockInfo.textContent = "Đang phát toàn bộ bài hát";
+
+    // Tự động tua về 0 và phát hết toàn bài
+    audio.currentTime = 0;
+    playFullAudio();
+  }
+
+  // Nút chơi bài tiếp theo
+  function playNextSong() {
+    pauseAudio();
+    initGame();
+  }
+
+  // Bắt đầu game
+  initGame();
+</script>
+</body>
+</html>
+</body>
+</html>
